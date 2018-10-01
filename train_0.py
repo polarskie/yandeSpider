@@ -32,7 +32,7 @@ def normalize_img(m):
     return np.asarray(m, dtype=np.float32) / 256.0
 
 
-def read_image_batch(path_list, normalizing=True):
+def read_image_batch(path_list, normalizing=True, strengthing=True):
     global batch_lock
     global input_X
     global strengthenor
@@ -41,11 +41,12 @@ def read_image_batch(path_list, normalizing=True):
         img = cv2.imread(path)
         if img is None:
             print("ERROR: %s does not exist" % path)
-        if normalizing:
-            img = normalize_img(cv2.resize(cv2.imread(path), dsize=(224, 224)))
+        if strengthing:
+            img = strengthenor.generate(img)
         else:
-            img = cv2.resize(cv2.imread(path), dsize=(224, 224))
-        img = strengthenor.generate(img)
+            img = cv2.resize(img, (224, 224))
+        if normalizing:
+            img = normalize_img(img)
         input_X.append(img)
     batch_lock.release()
 
@@ -58,7 +59,10 @@ if __name__ == "__main__":
         quit()
     model = Sequential()
     model.add(Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(224, 224, 3)))
+    model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
+    
+    model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
     model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     if False:
@@ -74,8 +78,11 @@ if __name__ == "__main__":
     model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     
+    model.add(Conv2D(512, (3, 3), activation='relu', padding='same'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    
     model.add(Flatten())
-    model.add(Dense(256, activation='relu'))
+    model.add(Dense(512, activation='relu'))
     model.add(Dense(2, activation='softmax'))
     for layer in model.layers:
         print(layer.output)
@@ -108,7 +115,7 @@ if __name__ == "__main__":
     test_y = one_hot([int(l.strip().split(' ')[1]) for l in lines])
     print(len(test_y))
     batch_lock.acquire()
-    threading.Thread(target=read_image_batch, args=(test_X_paths, )).start()
+    threading.Thread(target=read_image_batch, args=(test_X_paths, True, False)).start()
     batch_lock.acquire()
     test_X_array = np.array(input_X)
     test_y_array = np.array(test_y)

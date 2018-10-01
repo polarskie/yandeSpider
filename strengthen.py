@@ -15,13 +15,17 @@ class ImageStrengthen:
             img = img[:, ::-1]
         return img
 
-    def random_rotate(self, img):
+    def random_rotate(self, img, angle):
         h, w = img.shape[:2]
         center = (w / 2, h / 2)
-        angle = int(360 * np.random.rand())
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         img = cv2.warpAffine(img, M, (w, h))
         return img
 
     def generate(self, img):
-        return self.random_rotate(self.random_flip(img))
+        angle = 360 * np.random.rand()
+        contain_size = int(np.ceil(224. * (np.sin(angle * np.pi / 180.) + np.cos(angle * np.pi / 180.))))
+        img = cv2.resize(img, dsize=(contain_size, contain_size))
+        img = self.random_rotate(self.random_flip(img), angle)
+        img = cv2.resize(img, dsize=(224, 224))
+        return img
