@@ -13,6 +13,7 @@ import sys
 import pickle
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Conv2D, MaxPooling2D, Dropout, Flatten
+from keras.layers.normalization import BatchNormalization
 from strengthen import ImageStrengthen 
 batch_lock = threading.Lock()
 input_X = []
@@ -57,51 +58,50 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("must provide train and test file list")
         quit()
-    model = Sequential()
-    model.add(Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(224, 224, 3)))
-    model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    
-    model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
-    model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    if False:
+    if len(sys.argv) == 3:
+        model = Sequential()
+        model.add(Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(224, 224, 3)))
+        # model.add(BatchNormalization(axis=3))
+        model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        
+        model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
         model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         
         model.add(Conv2D(128, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
-    
-    model.add(Conv2D(128, (3, 3), activation='relu', padding='same'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    
-    model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    
-    model.add(Conv2D(512, (3, 3), activation='relu', padding='same'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    
-    model.add(Flatten())
-    model.add(Dense(512, activation='relu'))
-    model.add(Dense(2, activation='softmax'))
-    for layer in model.layers:
-        print(layer.output)
-    if False:
-        input_tensor = keras.Input(shape=(224, 224, 3))
-        conv_model = VGG19(weights=None, include_top=False, input_shape=(224, 224, 3), input_tensor=input_tensor)
-        for layer in conv_model.layers:
-            if "kernel" in dir(layer):
-                print(layer.name, layer.kernel, layer.strides, layer.padding)
-            else:
-                print(layer.name)
-        quit()
-        conv_feature_output = conv_model.output
-        x = keras.layers.Flatten()(conv_feature_output)
-        x = keras.layers.Dense(units=256, activation="relu")(x)
-        # x = keras.layers.Dense(units=128, activation="relu")(x)
-        x = keras.layers.Dense(units=2, activation="softmax")(x)
-        model = keras.Model(inputs=input_tensor, outputs=x)
-    model.compile(keras.optimizers.Adam(lr=0.0001), keras.losses.categorical_crossentropy)
+        
+        model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        
+        model.add(Conv2D(512, (3, 3), activation='relu', padding='same'))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        
+        model.add(Flatten())
+        model.add(Dense(512, activation='relu'))
+        # model.add(BatchNormalization(axis=1))
+        model.add(Dense(2, activation='softmax'))
+        for layer in model.layers:
+            print(layer.output)
+        if False:
+            input_tensor = keras.Input(shape=(224, 224, 3))
+            conv_model = VGG19(weights=None, include_top=False, input_shape=(224, 224, 3), input_tensor=input_tensor)
+            for layer in conv_model.layers:
+                if "kernel" in dir(layer):
+                    print(layer.name, layer.kernel, layer.strides, layer.padding)
+                else:
+                    print(layer.name)
+            quit()
+            conv_feature_output = conv_model.output
+            x = keras.layers.Flatten()(conv_feature_output)
+            x = keras.layers.Dense(units=256, activation="relu")(x)
+            # x = keras.layers.Dense(units=128, activation="relu")(x)
+            x = keras.layers.Dense(units=2, activation="softmax")(x)
+            model = keras.Model(inputs=input_tensor, outputs=x)
+        model.compile(keras.optimizers.Adam(lr=0.0001), keras.losses.categorical_crossentropy)
+    else:
+        model = keras.models.load_model(sys.argv[3])
     # model.compile(keras.optimizers.SGD(lr=0.0001, decay=1e-6, momentum=0.9), keras.losses.categorical_crossentropy)
     # load image paths and labels
     print("loading image paths and labels")
@@ -133,6 +133,10 @@ if __name__ == "__main__":
     for batch_i in range(100000):
         batch_lock.acquire()
         train_y_array = np.array([train_y[ind] for ind in batch_inds])
+        if False:
+            for mi, m in enumerate(input_X):
+                cv2.imwrite("kkjj%i.jpg" % mi, m)
+            quit()
         train_X_array = np.array(input_X)
         batch_inds = bg.next_batch()
         threading.Thread(target=read_image_batch, args=([train_X_paths[ind] for ind in batch_inds], )).start()
