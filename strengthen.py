@@ -30,10 +30,9 @@ class ImageStrengthen:
         vertical_discard = int(0.2 * np.random.rand() * h)
         top_discard = int(np.random.rand() * vertical_discard)
         bottom_discard = vertical_discard - top_discard
-
-        # print(h, w, int(top_discard_rate * h), int(bottom_discard_rate * h), int(left_discard_rate * w), int(right_discard_rate * w))
+        # print(h, w, top_discard, bottom_discard, left_discard, right_discard)
         img = img[top_discard:h if bottom_discard == 0 else -bottom_discard,
-                  left_discard:w if right_discard else -right_discard, :]
+                  left_discard:w if right_discard == 0 else -right_discard, :]
         return img
     
     def generate(self, img):
@@ -43,7 +42,7 @@ class ImageStrengthen:
         while ang > 90.:
             ang = ang - 90.
         contain_size = int(np.ceil(224. * (np.sin(ang * np.pi / 180.) + np.cos(ang * np.pi / 180.))))
-        print(ang, contain_size)
+        # print(ang, contain_size)
         img = cv2.resize(img, dsize=(contain_size, contain_size))
         img = self.random_rotate(self.random_flip(img), angle)
         img = img[(contain_size-224)//2:(contain_size-224)//2+224,
