@@ -36,7 +36,7 @@ class ImageStrengthen:
         return img
     
     def generate(self, img):
-        img = self.random_crop(img)
+        # img = self.random_crop(img)
         angle = 360 * np.random.rand()
         ang = angle
         while ang > 90.:

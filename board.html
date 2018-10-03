@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>myProject</title>
+    <!-- 引入 lib/echarts.custom.min.js -->
+    <script src="js/echarts.common.min.js"></script>
+    <script src="js/jquery-3.3.1.min.js"></script>
+</head>
+<body>
+    <script>
+		
+		var data = [[1, 2], [3, 4]];
+		var chart_array = []
+		function refresh_charts(res, status) {
+			var logs = JSON.parse(res);
+			for (var k in logs) {
+				d = [];
+				for (var i=0; i<logs[k].length; ++i) {
+					d.push([i, logs[k][i]])
+				}
+					
+				chart_array[k].setOption({
+					series: [{
+						data: d
+					}]
+				});
+			}
+			setTimeout(function() {$.get("get_log", refresh_charts);}, 20000);
+			
+			
+		}	
+		function construct_charts(res, status) {
+			// $("body").prepend($("<p>" + d + "</p>"));
+			var logs = JSON.parse(res);
+			width = $(window).width();
+			for (var k in logs) {
+				$("body").prepend($("<div class='chart' id='chart_" + k + "' style='width:" + width + "px; height:400px;'></div>"));
+				d = [];
+				for (var i=0; i<logs[k].length; ++i) {
+					d.push([i, logs[k][i]])
+				}
+					
+				var option = {
+					title: {
+						text: k
+					},
+					xAxis: {
+						type: 'value',
+						splitLine: {
+							show: false
+						}
+					},
+					yAxis: {
+						type: 'value',
+						// boundaryGap: [0, '100%'],
+						splitLine: {
+							show: false
+						}
+					},
+					series: [{
+						name: 'plot',
+						type: 'line',
+						showSymbol: false,
+						hoverAnimation: false,
+						data: d
+					}]
+				};
+				chart_array[k] = echarts.init(document.getElementById("chart_"+k));
+				chart_array[k].setOption(option);
+			}
+			setTimeout(function() {$.get("get_log", refresh_charts);}, 20000);
+		}
+		$(document).ready(function() {
+			$.get("get_log", construct_charts);
+			//function(data,status) {
+			//	alert("Data: " + data + "\nStatus: " + status);
+			//});
+			return;
+			// 绘制图表。
+			myChart = echarts.init(document.getElementById('main'))
+			myChart.setOption(option);
+			setInterval(function() {
+				data.push([10, 10]);
+				myChart.setOption({
+					series: [{
+						data: data
+					}]
+				});
+				}, 1000);
+		});
+    </script>
+</body>
+</html>
