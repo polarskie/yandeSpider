@@ -24,6 +24,8 @@ batch_lock = threading.Lock()
 input_X = []
 input_y = []
 strengthenor = ImageStrengthen()
+test_interval = 100
+record_interval = 1000
 
 
 def one_hot(y):
@@ -58,6 +60,7 @@ def read_image_batch(path_list, normalizing=True, strengthing=True):
 
 
 if __name__ == "__main__":
+    base_kernel_size = 32
     # load model
     if len(sys.argv) < 3:
         print("must provide train and test file list")
@@ -65,22 +68,22 @@ if __name__ == "__main__":
     if len(sys.argv) == 3:
         print("building model")
         model = Sequential()
-        model.add(Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(224, 224, 3)))
+        model.add(Conv2D(base_kernel_size, (3, 3), activation='relu', padding='same', input_shape=(224, 224, 3)))
         # model.add(BatchNormalization(axis=3))
-        model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
+        model.add(Conv2D(base_kernel_size, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         
-        model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
-        model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
+        model.add(Conv2D(base_kernel_size*2, (3, 3), activation='relu', padding='same'))
+        model.add(Conv2D(base_kernel_size*2, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         
-        model.add(Conv2D(128, (3, 3), activation='relu', padding='same'))
+        model.add(Conv2D(base_kernel_size*4, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         
-        model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
+        model.add(Conv2D(base_kernel_size*8, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         
-        model.add(Conv2D(512, (3, 3), activation='relu', padding='same'))
+        model.add(Conv2D(base_kernel_size*16, (3, 3), activation='relu', padding='same'))
         model.add(MaxPooling2D(pool_size=(2, 2)))
         
         model.add(Flatten())
@@ -90,11 +93,27 @@ if __name__ == "__main__":
         for layer in model.layers:
             print(layer.output)
         # model.compile(keras.optimizers.Adam(lr=0.0005), keras.losses.categorical_crossentropy)
-        model.compile(keras.optimizers.Adam(lr=0.000005), keras.losses.categorical_crossentropy)
+        model.compile(keras.optimizers.Adam(lr=0.0001), keras.losses.categorical_crossentropy)
         # model.compile(keras.optimizers.SGD(lr=0.0001, momentum=0.95, decay=1e-6), keras.losses.categorical_crossentropy)
+    
+        accuracies = []
+        mean_cross_entropies = []
+        train_loss = []
+        train_loss_avg = []
     else:
         print("loading existing model")
         model = keras.models.load_model(sys.argv[3])
+        if len(sys.argv) >= 5:
+            with open(sys.argv[4], "rb") as f:
+                p = pickle.load(f)
+            accuracies = ["accs"]
+            mean_cross_entropies = p["crs_ents"]
+            train_loss_avg = p["losses"]
+        accuracies = []
+        mean_cross_entropies = []
+        train_loss_avg = []
+        train_loss = []
+
     # model.compile(keras.optimizers.SGD(lr=0.0001, decay=1e-6, momentum=0.9), keras.losses.categorical_crossentropy)
     # load image paths and labels
     print("loading image paths and labels")
@@ -119,10 +138,6 @@ if __name__ == "__main__":
     print("start training")
     batch_inds = bg.next_batch()
     batch_lock.acquire()
-    accuracies = []
-    mean_cross_entropies = []
-    train_loss = []
-    train_loss_avg = []
     best_acc = -1.0
     threading.Thread(target=read_image_batch, args=([train_X_paths[ind] for ind in batch_inds], )).start()
     for batch_i in range(10000000):
@@ -138,14 +153,14 @@ if __name__ == "__main__":
         loss = model.train_on_batch(train_X_array, train_y_array)
         train_loss.append(float(loss))
         print("batch %i over" % batch_i)
-        if batch_i % 100 == 0:
+        if batch_i % test_interval == 0:
             prediction_array = model.predict(test_X_array, batch_size=20)
             mean_cross_entropy = np.mean(np.sum(-np.log2(prediction_array) * test_y_array, axis=1))
             accuracy = np.mean(np.argmax(prediction_array, axis=1) == np.argmax(test_y_array, axis=1))
             print(mean_cross_entropy, accuracy)
             accuracies.append(accuracy)
             mean_cross_entropies.append(mean_cross_entropy)
-            train_loss_avg.append(np.mean(train_loss[-100:]))
+            train_loss_avg.append(np.mean(train_loss[-test_interval:]))
             try:
                 r = http.request("POST", 'http://localhost:8080/log', 
                                  body=json.dumps({"accuracies": accuracies,
@@ -157,8 +172,8 @@ if __name__ == "__main__":
             if accuracy > best_acc:
                 best_acc = accuracy
                 model.save("batch_best.h5")
-            if batch_i % 1000 == 0:
+            if batch_i % record_interval == 0:
                 time_str = time.strftime("%Y%m%d%H%M%S", time.localtime(time.time()))
                 model.save("batch_%s.h5" % time_str)
-                with open("log_%s.txt" % time_str, 'wb') as f:
-                    pickle.dump({"accs": accuracies, "crs_ents": mean_cross_entropies}, f)
+                with open("log.txt", 'wb') as f:
+                    pickle.dump({"accs": accuracies, "crs_ents": mean_cross_entropies, "losses": train_loss_avg}, f)

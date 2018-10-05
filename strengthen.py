@@ -34,10 +34,20 @@ class ImageStrengthen:
         img = img[top_discard:h if bottom_discard == 0 else -bottom_discard,
                   left_discard:w if right_discard == 0 else -right_discard, :]
         return img
+
+    def random_crop_digitized(self, img):
+        h, w = img.shape[:2]
+        margin_h = int(h * 0.1)
+        margin_w = int(w * 0.1)
+        img = img[(np.random.rand() > 0.5) * margin_h:h-(np.random.rand() > 0.5) * margin_h,
+                  (np.random.rand() > 0.5) * margin_w:w-(np.random.rand() > 0.5) * margin_w, :]
+        return img
     
     def generate(self, img):
         # img = self.random_crop(img)
-        angle = 360 * np.random.rand()
+        img = self.random_crop_digitized(img)
+        # angle = 360 * np.random.rand()
+        angle = int(np.random.rand() / 0.125) * 45
         ang = angle
         while ang > 90.:
             ang = ang - 90.
